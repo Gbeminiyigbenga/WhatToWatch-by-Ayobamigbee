@@ -1,47 +1,54 @@
-const apiKey = "b6f0e8e1";
 
-// Define search terms for each mood
-const moodKeywords = {
-  "Feel-Good": ["Paddington 2", "La La Land", "The Intouchables"],
-  "Thriller": ["Knives Out", "Gone Girl", "Prisoners"],
-  "Romance": ["Pride and Prejudice", "About Time", "Call Me by Your Name"],
-  "Horror": ["Pearl", "Hereditary", "The Conjuring"],
-  "Surprise Me": ["Inception", "Coco", "Get Out", "Titanic", "Parasite"]
+const apiKey = "b6f0e8e1";
+const grid = document.getElementById("recommendation-grid");
+
+const moodTerms = {
+  "Feel-Good": "comedy",
+  "Thriller": "thriller",
+  "Romance": "romance",
+  "Horror": "horror",
+  "Surprise Me": "movie"
 };
 
-const moodButtons = document.querySelectorAll(".mood-btn");
-const recImage = document.querySelector(".poster");
-const recTitle = document.querySelector(".card-content h2");
-const recDesc = document.querySelector(".card-content p:nth-of-type(1)");
-const recPlatform = document.querySelector(".card-content p:nth-of-type(2)");
-
-async function fetchMovieData(title) {
-  const url = `https://www.omdbapi.com/?t=${encodeURIComponent(title)}&apikey=${apiKey}`;
-  const res = await fetch(url);
+async function fetchMoviesByKeyword(keyword) {
+  const page = Math.floor(Math.random() * 3) + 1; // Page 1 to 3
+  const res = await fetch(`https://www.omdbapi.com/?s=${encodeURIComponent(keyword)}&page=${page}&apikey=${apiKey}`);
   const data = await res.json();
-  return data;
+  return data.Search || [];
 }
 
-moodButtons.forEach(button => {
+async function fetchMovieDetails(imdbID) {
+  const res = await fetch(`https://www.omdbapi.com/?i=${imdbID}&apikey=${apiKey}`);
+  return await res.json();
+}
+
+function clearGrid() {
+  grid.innerHTML = "";
+}
+
+function createMovieCard(movie) {
+  return `
+    <div class="card">
+      <img src="${movie.Poster !== "N/A" ? movie.Poster : "assets/images/default.jpg"}" class="poster" alt="${movie.Title} Poster">
+      <div class="card-content">
+        <h2>${movie.Title} (${movie.Year})</h2>
+        <p>${movie.Plot || "No description available."}</p>
+        <p><strong>Genre:</strong> ${movie.Genre || "Unknown"}</p>
+      </div>
+    </div>
+  `;
+}
+
+document.querySelectorAll(".mood-btn").forEach(button => {
   button.addEventListener("click", async () => {
-    const mood = button.textContent;
-    const keywordList = moodKeywords[mood] || moodKeywords["Surprise Me"];
-    const randomIndex = Math.floor(Math.random() * keywordList.length);
-    const movieTitle = keywordList[randomIndex];
+    const mood = button.textContent.trim();
+    const keyword = moodTerms[mood] || "movie";
+    clearGrid();
+    const searchResults = await fetchMoviesByKeyword(keyword);
 
-    const movieData = await fetchMovieData(movieTitle);
-
-    if (movieData && movieData.Response === "True") {
-      recImage.src = movieData.Poster;
-      recImage.alt = `${movieData.Title} Poster`;
-      recTitle.textContent = `${movieData.Title} (${movieData.Year})`;
-      recDesc.textContent = movieData.Plot;
-      recPlatform.innerHTML = `<strong>Genre:</strong> ${movieData.Genre}`;
-    } else {
-      recTitle.textContent = "Oops! Movie not found.";
-      recDesc.textContent = "";
-      recImage.src = "assets/images/placeholder.jpg"; // Optional fallback image
-      recPlatform.textContent = "";
+    for (let item of searchResults.slice(0, 6)) {
+      const fullDetails = await fetchMovieDetails(item.imdbID);
+      grid.innerHTML += createMovieCard(fullDetails);
     }
   });
 });
